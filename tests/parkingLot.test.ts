@@ -4,8 +4,6 @@ import { Car } from '../src/game/Car';
 
 const makeLot = (seed = 1) =>
   new ParkingLot({
-    width: 60,
-    height: 40,
     rows: 2,
     cols: 6,
     slotLength: 5,
@@ -17,38 +15,56 @@ const makeLot = (seed = 1) =>
     },
   });
 
+const anyEmpty = (lot: ParkingLot) => {
+  const s = lot.slots.find((slot) => !slot.occupied);
+  if (!s) throw new Error('no empty slot');
+  return s;
+};
+
 describe('ParkingLot generation', () => {
   it('creates the configured number of slots', () => {
     const lot = makeLot();
     expect(lot.slots).toHaveLength(12);
   });
 
-  it('marks exactly one slot as the target (empty) slot', () => {
+  it('marks between 2 and 5 slots as empty', () => {
     const lot = makeLot();
     const empties = lot.slots.filter((s) => !s.occupied);
-    expect(empties).toHaveLength(1);
-    expect(lot.targetSlot).toBe(empties[0]);
+    expect(empties.length).toBeGreaterThanOrEqual(2);
+    expect(empties.length).toBeLessThanOrEqual(5);
   });
 
-  it('places parked cars in every non-target slot', () => {
+  it('places parked cars in every occupied slot', () => {
     const lot = makeLot();
-    expect(lot.parkedCars).toHaveLength(lot.slots.length - 1);
+    const occupied = lot.slots.filter((s) => s.occupied);
+    expect(lot.parkedCars).toHaveLength(occupied.length);
+  });
+
+  it('computes a width/height that fits the layout', () => {
+    const lot = makeLot();
+    expect(lot.width).toBeGreaterThan(0);
+    expect(lot.height).toBeGreaterThan(0);
   });
 
   it('exposes an entrance position inside the lot bounds', () => {
     const lot = makeLot();
     expect(lot.entrance.x).toBeGreaterThanOrEqual(0);
-    expect(lot.entrance.x).toBeLessThanOrEqual(60);
+    expect(lot.entrance.x).toBeLessThanOrEqual(lot.width);
     expect(lot.entrance.y).toBeGreaterThanOrEqual(0);
-    expect(lot.entrance.y).toBeLessThanOrEqual(40);
+    expect(lot.entrance.y).toBeLessThanOrEqual(lot.height);
+  });
+
+  it('supports more than two rows', () => {
+    const lot = new ParkingLot({ rows: 6, cols: 4, slotLength: 5, slotWidth: 2.5, rng: () => 0.5 });
+    expect(lot.slots).toHaveLength(24);
   });
 });
 
 describe('ParkingLot win condition', () => {
   const lot = makeLot(42);
-  const slot = lot.targetSlot;
+  const slot = anyEmpty(lot);
 
-  it('returns true when car is centered, slow, and aligned with the slot', () => {
+  it('returns true when car is centered, slow, and aligned with an empty slot', () => {
     const car = new Car({
       x: slot.cx,
       y: slot.cy,
@@ -82,7 +98,7 @@ describe('ParkingLot win condition', () => {
     expect(lot.isParked(car)).toBe(false);
   });
 
-  it('returns false when car is outside the slot bounds', () => {
+  it('returns false when car is outside any slot bounds', () => {
     const car = new Car({
       x: slot.cx + 100,
       y: slot.cy + 100,
@@ -102,5 +118,14 @@ describe('ParkingLot win condition', () => {
       width: 2,
     });
     expect(lot.isParked(car)).toBe(true);
+  });
+
+  it('accepts any empty slot, not just one specific target', () => {
+    const empties = lot.slots.filter((s) => !s.occupied);
+    expect(empties.length).toBeGreaterThan(1);
+    for (const e of empties) {
+      const car = new Car({ x: e.cx, y: e.cy, heading: e.angle, length: 4, width: 2 });
+      expect(lot.isParked(car)).toBe(true);
+    }
   });
 });

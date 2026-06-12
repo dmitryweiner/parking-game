@@ -6,8 +6,6 @@ import { computeScore } from './Score';
 export type GameState = 'playing' | 'won' | 'crashed' | 'timeout';
 
 export interface GameOptions {
-  width?: number;
-  height?: number;
   rows?: number;
   cols?: number;
   slotLength?: number;
@@ -27,9 +25,7 @@ export class Game {
   constructor(opts: GameOptions = {}) {
     const rng = opts.rng ?? Math.random;
     this.lot = new ParkingLot({
-      width: opts.width ?? 50,
-      height: opts.height ?? 35,
-      rows: opts.rows ?? 2,
+      rows: opts.rows ?? 4,
       cols: opts.cols ?? 10,
       slotLength: opts.slotLength ?? 5,
       slotWidth: opts.slotWidth ?? 2.5,

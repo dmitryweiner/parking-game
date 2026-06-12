@@ -9,10 +9,12 @@
   <body>
     <canvas id="game"></canvas>
     <div id="hud">
-      <div id="time">Time: <span data-value="time">0.0</span></div>
-      <div id="score">Score: <span data-value="score">0</span></div>
-      <div id="status" data-value="status"></div>
-      <button id="btn-restart" type="button" aria-label="Restart" title="Restart (R)">&#x21bb;</button>
+      <div class="hud-pill" id="time">Time: <span data-value="time">60</span></div>
+      <div class="hud-pill" id="score">Score: <span data-value="score">0</span></div>
+      <button class="hud-pill" id="btn-restart" type="button" title="Restart (R)">
+        <span class="restart-icon" aria-hidden="true">&#x21bb;</span>
+        <span class="restart-label" data-value="restart-label">Restart</span>
+      </button>
     </div>
     <div id="mobile-controls">
       <div id="steering-wheel" aria-label="Steering wheel">
