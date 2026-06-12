@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Parking Game</title>
+    <script type="module" crossorigin src="./assets/index-D-K9R1kj.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-o3e3NGeO.css">
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="hud">
+      <div id="time">Time: <span data-value="time">0.0</span></div>
+      <div id="score">Score: <span data-value="score">0</span></div>
+      <div id="status" data-value="status"></div>
+      <button id="btn-restart" type="button" aria-label="Restart" title="Restart (R)">&#x21bb;</button>
+    </div>
+    <div id="mobile-controls">
+      <div id="steering-wheel" aria-label="Steering wheel">
+        <svg id="steering-wheel-svg" viewBox="-50 -50 100 100" aria-hidden="true">
+          <g id="steering-wheel-inner">
+            <circle r="46" fill="rgba(28,28,32,0.6)" stroke="rgba(255,255,255,0.55)" stroke-width="6"/>
+            <circle r="38" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="2"/>
+            <rect x="-40" y="-5" width="80" height="10" rx="3" fill="rgba(240,240,240,0.92)"/>
+            <rect x="-5" y="-40" width="10" height="22" rx="3" fill="rgba(240,240,240,0.92)"/>
+            <circle r="13" fill="rgba(255,206,77,0.95)"/>
+            <circle r="9" fill="rgba(0,0,0,0.25)"/>
+          </g>
+        </svg>
+      </div>
+      <div id="pedals">
+        <button id="pedal-brake" aria-label="Brake">BRAKE</button>
+        <button id="pedal-gas" aria-label="Gas">GAS</button>
+      </div>
+    </div>
+  </body>
+</html>
