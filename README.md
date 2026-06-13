@@ -20,7 +20,7 @@ A small browser parking game: find a highlighted empty slot, park cleanly withou
 | --- | --- | --- |
 | Throttle | `W` / `↑` | green **GAS** pedal |
 | Brake / reverse | `S` / `↓` / `Space` (held while at rest = reverse) | red **BRAKE** pedal (held while at rest = reverse) |
-| Steer | `A`/`D` or `←`/`→` | drag the steering wheel — it rotates with your input |
+| Steer | `A`/`D` or `←`/`→` | drag the steering wheel left/right — steering is relative to where you first touched, with the rotation direction matched to the touch point (grabbing the bottom and pulling right turns the wheel left, like a real wheel), and snaps back to center on release |
 | Zoom | mouse wheel | two-finger pinch |
 | Restart | `R` / `Enter` / click the **Restart** button | tap the **Restart** button |
 

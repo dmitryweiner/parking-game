@@ -74,17 +74,17 @@ export class Input {
     const inner = document.getElementById('steering-wheel-inner');
     if (wheel && inner) {
       let activeTouch: number | null = null;
+      let startX = 0;
+      let dragRange = 1;
+      let directionSign = 1;
       const setRotation = (t: number): void => {
         const deg = t * 110;
         inner.setAttribute('transform', `rotate(${deg})`);
       };
 
       const update = (clientX: number): void => {
-        const rect = wheel.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2;
-        const half = rect.width / 2;
-        const dx = clientX - cx;
-        const t = clamp(dx / half, -1, 1);
+        const dx = (clientX - startX) * directionSign;
+        const t = clamp(dx / dragRange, -1, 1);
         this.touchSteer = t;
         setRotation(t);
       };
@@ -95,7 +95,12 @@ export class Input {
         if (activeTouch !== null) return;
         const touch = e.changedTouches[0];
         activeTouch = touch.identifier;
-        update(touch.clientX);
+        const rect = wheel.getBoundingClientRect();
+        startX = touch.clientX;
+        dragRange = rect.width / 2;
+        directionSign = touch.clientY < rect.top + rect.height / 2 ? 1 : -1;
+        this.touchSteer = 0;
+        setRotation(0);
         e.preventDefault();
       }, { passive: false });
 
