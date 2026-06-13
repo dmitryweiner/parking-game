@@ -15,14 +15,21 @@ const LOT_OPTIONS: GameOptions = { rows: 4, cols: 10 };
 const MOBILE_DEFAULT_ZOOM = 2;
 
 function isMobile(): boolean {
-  return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  if (window.matchMedia('(hover: none) and (pointer: coarse)').matches) return true;
+  const hasTouch = 'ontouchstart' in window || (navigator.maxTouchPoints ?? 0) > 0;
+  const smallerSide = Math.min(window.innerWidth, window.innerHeight);
+  return hasTouch && smallerSide < 800;
 }
 
 let sessionScore = 0;
 let game = new Game(LOT_OPTIONS);
 renderer.resize();
 if (isMobile()) renderer.setZoom(MOBILE_DEFAULT_ZOOM);
-window.addEventListener('resize', () => renderer.resize());
+const handleResize = (): void => renderer.resize();
+window.addEventListener('resize', handleResize);
+window.addEventListener('orientationchange', handleResize);
+window.visualViewport?.addEventListener('resize', handleResize);
+window.visualViewport?.addEventListener('scroll', handleResize);
 
 canvas.addEventListener('wheel', (e: WheelEvent) => {
   e.preventDefault();

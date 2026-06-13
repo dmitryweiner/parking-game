@@ -4,6 +4,10 @@ import type { Car } from '../game/Car';
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 4;
+// Cap the canvas buffer's pixel density. On real mobile devices DPR is often
+// 3–4, which can push the internal buffer past per-device canvas size limits
+// and make draws silently no-op. 2 is plenty for crisp 2D rendering.
+const MAX_DPR = 2;
 
 export class Renderer {
   private zoom = 1;
@@ -11,11 +15,17 @@ export class Renderer {
   constructor(private readonly canvas: HTMLCanvasElement) {}
 
   resize(): void {
-    const dpr = window.devicePixelRatio || 1;
-    this.canvas.width = window.innerWidth * dpr;
-    this.canvas.height = window.innerHeight * dpr;
-    this.canvas.style.width = `${window.innerWidth}px`;
-    this.canvas.style.height = `${window.innerHeight}px`;
+    // Prefer the visual viewport: on mobile Chrome it tracks the area actually
+    // visible to the user as the URL bar collapses/expands, whereas
+    // window.innerHeight stays stuck at the layout viewport.
+    const vv = window.visualViewport;
+    const cssW = vv ? vv.width : window.innerWidth;
+    const cssH = vv ? vv.height : window.innerHeight;
+    const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+    this.canvas.width = Math.max(1, Math.round(cssW * dpr));
+    this.canvas.height = Math.max(1, Math.round(cssH * dpr));
+    this.canvas.style.width = `${cssW}px`;
+    this.canvas.style.height = `${cssH}px`;
   }
 
   getZoom(): number {
