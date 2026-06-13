@@ -74,10 +74,24 @@ export class Car {
 
     this.steeringAngle = steer * MAX_STEER;
 
+    // Rear-axle bicycle model: only the front wheels steer, so the rear axle
+    // rolls straight along the car's heading and the body rotates around the
+    // external instant center (perpendicular to the rear axle, R = L/tan δ).
+    // Track the rear axle as the kinematic reference; re-derive the body
+    // center after the heading update so the body sweeps outward correctly.
+    const halfBase = this.wheelBase / 2;
+    const cosH = Math.cos(this.heading);
+    const sinH = Math.sin(this.heading);
+    const rearX = this.position.x - halfBase * cosH;
+    const rearY = this.position.y - halfBase * sinH;
+    const newRearX = rearX + v * cosH * dt;
+    const newRearY = rearY + v * sinH * dt;
+
     const yawRate = (v / this.wheelBase) * Math.tan(this.steeringAngle);
     this.heading += yawRate * dt;
-    this.position.x += v * Math.cos(this.heading) * dt;
-    this.position.y += v * Math.sin(this.heading) * dt;
+
+    this.position.x = newRearX + halfBase * Math.cos(this.heading);
+    this.position.y = newRearY + halfBase * Math.sin(this.heading);
   }
 
   getCorners(): Vec2[] {

@@ -7,11 +7,6 @@ const MAX_ZOOM = 4;
 
 export class Renderer {
   private zoom = 1;
-  private panX = 0;
-  private panY = 0;
-  private lastScale = 1;
-  private lastLotWidth = 0;
-  private lastLotHeight = 0;
 
   constructor(private readonly canvas: HTMLCanvasElement) {}
 
@@ -35,29 +30,6 @@ export class Renderer {
     this.setZoom(this.zoom * factor);
   }
 
-  panByScreen(dxCss: number, dyCss: number): void {
-    if (this.lastScale <= 0) return;
-    const dpr = window.devicePixelRatio || 1;
-    this.panX -= (dxCss * dpr) / this.lastScale;
-    this.panY -= (dyCss * dpr) / this.lastScale;
-    this.clampPan();
-  }
-
-  resetView(): void {
-    this.panX = 0;
-    this.panY = 0;
-    this.zoom = 1;
-  }
-
-  private clampPan(): void {
-    const lotW = this.lastLotWidth;
-    const lotH = this.lastLotHeight;
-    if (lotW <= 0 || lotH <= 0) return;
-    const limit = Math.max(lotW, lotH);
-    this.panX = clamp(this.panX, -limit, limit);
-    this.panY = clamp(this.panY, -limit, limit);
-  }
-
   render(game: Game): void {
     const ctx = this.canvas.getContext('2d');
     if (!ctx) return;
@@ -73,15 +45,11 @@ export class Renderer {
       (h - 2 * margin) / game.lot.height,
     );
     const scale = baseScale * this.zoom;
-    this.lastScale = scale;
-    this.lastLotWidth = game.lot.width;
-    this.lastLotHeight = game.lot.height;
 
     const viewW = w / scale;
     const viewH = h / scale;
-    const followStrength = clamp((this.zoom - 1) / (MAX_ZOOM - 1), 0, 1);
-    let focusX = lerp(game.lot.width / 2, game.car.position.x, followStrength) + this.panX;
-    let focusY = lerp(game.lot.height / 2, game.car.position.y, followStrength) + this.panY;
+    let focusX = game.car.position.x;
+    let focusY = game.car.position.y;
     if (viewW < game.lot.width) {
       focusX = clamp(focusX, viewW / 2, game.lot.width - viewW / 2);
     } else {
@@ -115,13 +83,13 @@ export class Renderer {
   }
 }
 
-function drawSlot(ctx: CanvasRenderingContext2D, slot: Slot, isTarget: boolean): void {
+function drawSlot(ctx: CanvasRenderingContext2D, slot: Slot, highlight: boolean): void {
   ctx.save();
   ctx.translate(slot.cx, slot.cy);
   ctx.rotate(slot.angle);
   const hl = slot.length / 2;
   const hw = slot.width / 2;
-  if (isTarget) {
+  if (highlight) {
     ctx.fillStyle = 'rgba(120, 220, 130, 0.18)';
     ctx.fillRect(-hl, -hw, hl * 2, hw * 2);
   }
@@ -224,8 +192,4 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 
 function clamp(v: number, a: number, b: number): number {
   return Math.max(a, Math.min(b, v));
-}
-
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
 }

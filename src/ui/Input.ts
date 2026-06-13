@@ -1,22 +1,19 @@
 import type { CarInput } from '../game/Car';
 
-interface KeyState {
-  ArrowUp: boolean;
-  ArrowDown: boolean;
-  ArrowLeft: boolean;
-  ArrowRight: boolean;
-  KeyW: boolean;
-  KeyA: boolean;
-  KeyS: boolean;
-  KeyD: boolean;
-  Space: boolean;
-}
+const TRACKED_KEYS = new Set<string>([
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'KeyW',
+  'KeyA',
+  'KeyS',
+  'KeyD',
+  'Space',
+]);
 
 export class Input {
-  private keys: KeyState = {
-    ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
-    KeyW: false, KeyA: false, KeyS: false, KeyD: false, Space: false,
-  };
+  private readonly pressed = new Set<string>();
   private touchSteer = 0;
   private touchThrottle = 0;
   private touchBrake = 0;
@@ -35,11 +32,12 @@ export class Input {
   }
 
   read(): CarInput {
-    const throttleKey = this.keys.ArrowUp || this.keys.KeyW ? 1 : 0;
-    const brakeKey = this.keys.ArrowDown || this.keys.KeyS || this.keys.Space ? 1 : 0;
+    const throttleKey = this.pressed.has('ArrowUp') || this.pressed.has('KeyW') ? 1 : 0;
+    const brakeKey =
+      this.pressed.has('ArrowDown') || this.pressed.has('KeyS') || this.pressed.has('Space') ? 1 : 0;
     const steerKey =
-      (this.keys.ArrowLeft || this.keys.KeyA ? -1 : 0) +
-      (this.keys.ArrowRight || this.keys.KeyD ? 1 : 0);
+      (this.pressed.has('ArrowLeft') || this.pressed.has('KeyA') ? -1 : 0) +
+      (this.pressed.has('ArrowRight') || this.pressed.has('KeyD') ? 1 : 0);
 
     return {
       throttle: Math.max(throttleKey, this.touchThrottle),
@@ -55,8 +53,8 @@ export class Input {
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {
-    if (e.code in this.keys) {
-      (this.keys as unknown as Record<string, boolean>)[e.code] = true;
+    if (TRACKED_KEYS.has(e.code)) {
+      this.pressed.add(e.code);
       e.preventDefault();
     }
     if (e.code === 'KeyR' || e.code === 'Enter') {
@@ -65,8 +63,8 @@ export class Input {
   };
 
   private onKeyUp = (e: KeyboardEvent): void => {
-    if (e.code in this.keys) {
-      (this.keys as unknown as Record<string, boolean>)[e.code] = false;
+    if (TRACKED_KEYS.has(e.code)) {
+      this.pressed.delete(e.code);
       e.preventDefault();
     }
   };

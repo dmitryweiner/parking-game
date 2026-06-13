@@ -3,20 +3,25 @@ import { Input } from './ui/Input';
 import { Renderer } from './ui/Renderer';
 import { Hud } from './ui/Hud';
 
-const canvas = document.getElementById('game') as HTMLCanvasElement | null;
-if (!canvas) throw new Error('Canvas #game not found');
+const canvasEl = document.getElementById('game');
+if (!(canvasEl instanceof HTMLCanvasElement)) throw new Error('Canvas #game not found');
+const canvas = canvasEl;
 
 const renderer = new Renderer(canvas);
 const input = new Input();
 const hud = new Hud();
 
-function gameOptions(): GameOptions {
-  const portrait = window.innerHeight > window.innerWidth;
-  return portrait ? { rows: 8, cols: 4 } : { rows: 4, cols: 10 };
+const LOT_OPTIONS: GameOptions = { rows: 4, cols: 10 };
+const MOBILE_DEFAULT_ZOOM = 2;
+
+function isMobile(): boolean {
+  return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
 }
 
-let game = new Game(gameOptions());
+let sessionScore = 0;
+let game = new Game(LOT_OPTIONS);
 renderer.resize();
+if (isMobile()) renderer.setZoom(MOBILE_DEFAULT_ZOOM);
 window.addEventListener('resize', () => renderer.resize());
 
 canvas.addEventListener('wheel', (e: WheelEvent) => {
@@ -25,49 +30,14 @@ canvas.addEventListener('wheel', (e: WheelEvent) => {
   renderer.zoomBy(factor);
 }, { passive: false });
 
-let mouseDragging = false;
-let mouseLastX = 0;
-let mouseLastY = 0;
-canvas.addEventListener('mousedown', (e: MouseEvent) => {
-  if (e.button !== 0) return;
-  mouseDragging = true;
-  mouseLastX = e.clientX;
-  mouseLastY = e.clientY;
-  canvas.style.cursor = 'grabbing';
-});
-window.addEventListener('mousemove', (e: MouseEvent) => {
-  if (!mouseDragging) return;
-  const dx = e.clientX - mouseLastX;
-  const dy = e.clientY - mouseLastY;
-  mouseLastX = e.clientX;
-  mouseLastY = e.clientY;
-  renderer.panByScreen(dx, dy);
-});
-const endMouseDrag = (): void => {
-  if (!mouseDragging) return;
-  mouseDragging = false;
-  canvas.style.cursor = '';
-};
-window.addEventListener('mouseup', endMouseDrag);
-window.addEventListener('mouseleave', endMouseDrag);
-
 let pinchInitialDist = 0;
 let pinchInitialZoom = 1;
-let panTouchId: number | null = null;
-let panLastX = 0;
-let panLastY = 0;
 
 canvas.addEventListener('touchstart', (e: TouchEvent) => {
   if (e.touches.length >= 2) {
     pinchInitialDist = touchDistance(e.touches[0], e.touches[1]);
     pinchInitialZoom = renderer.getZoom();
-    panTouchId = null;
     e.preventDefault();
-  } else if (e.touches.length === 1) {
-    const t = e.touches[0];
-    panTouchId = t.identifier;
-    panLastX = t.clientX;
-    panLastY = t.clientY;
   }
 }, { passive: false });
 
@@ -76,36 +46,14 @@ canvas.addEventListener('touchmove', (e: TouchEvent) => {
     const d = touchDistance(e.touches[0], e.touches[1]);
     renderer.setZoom(pinchInitialZoom * (d / pinchInitialDist));
     e.preventDefault();
-  } else if (panTouchId !== null) {
-    for (const t of Array.from(e.touches)) {
-      if (t.identifier === panTouchId) {
-        const dx = t.clientX - panLastX;
-        const dy = t.clientY - panLastY;
-        panLastX = t.clientX;
-        panLastY = t.clientY;
-        renderer.panByScreen(dx, dy);
-        e.preventDefault();
-        break;
-      }
-    }
   }
 }, { passive: false });
 
-const endTouch = (e: TouchEvent): void => {
+const endPinch = (e: TouchEvent): void => {
   if (e.touches.length < 2) pinchInitialDist = 0;
-  if (panTouchId !== null) {
-    let stillThere = false;
-    for (const t of Array.from(e.touches)) {
-      if (t.identifier === panTouchId) {
-        stillThere = true;
-        break;
-      }
-    }
-    if (!stillThere) panTouchId = null;
-  }
 };
-canvas.addEventListener('touchend', endTouch);
-canvas.addEventListener('touchcancel', endTouch);
+canvas.addEventListener('touchend', endPinch);
+canvas.addEventListener('touchcancel', endPinch);
 
 let last = performance.now();
 function loop(now: number): void {
@@ -113,13 +61,14 @@ function loop(now: number): void {
   last = now;
 
   if (input.consumeReset()) {
-    game = new Game(gameOptions());
-    renderer.resetView();
+    if (game.state === 'won') sessionScore += game.finalScore;
+    game = new Game(LOT_OPTIONS);
+    // intentionally keep the current zoom — restart shouldn't snap the view
   }
 
   game.update(dt, input.read());
   renderer.render(game);
-  hud.update(game);
+  hud.update(game, sessionScore);
 
   requestAnimationFrame(loop);
 }

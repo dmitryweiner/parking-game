@@ -83,7 +83,7 @@ describe('ParkingLot win condition', () => {
       length: 4,
       width: 2,
     });
-    (car as unknown as { velocity: number }).velocity = 5;
+    car.velocity = 5;
     expect(lot.isParked(car)).toBe(false);
   });
 

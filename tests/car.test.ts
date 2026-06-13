@@ -87,4 +87,31 @@ describe('Car physics', () => {
     expect(ys[0]).toBeCloseTo(-2);
     expect(ys[3]).toBeCloseTo(2);
   });
+
+  it('pivots around the rear axle, not the body center, while steering', () => {
+    // Drive a forward arc with full steering; the rear axle's swept radius
+    // should be smaller than the body center's — the hallmark of the
+    // rear-axle bicycle model (front wheels steer, rear wheels roll straight).
+    const car = new Car({ x: 0, y: 0, heading: 0, length: 4, width: 2 });
+    const startCenter = { x: car.position.x, y: car.position.y };
+    const halfBase = car.wheelBase / 2;
+    const startRear = {
+      x: startCenter.x - halfBase * Math.cos(car.heading),
+      y: startCenter.y - halfBase * Math.sin(car.heading),
+    };
+    for (let i = 0; i < 240; i++) {
+      car.update(1 / 60, { throttle: 1, brake: 0, steer: 1 });
+    }
+    // Heading has changed (we've been turning)
+    expect(car.heading).not.toBeCloseTo(0);
+
+    const endRear = {
+      x: car.position.x - halfBase * Math.cos(car.heading),
+      y: car.position.y - halfBase * Math.sin(car.heading),
+    };
+    const rearDist = Math.hypot(endRear.x - startRear.x, endRear.y - startRear.y);
+    const centerDist = Math.hypot(car.position.x - startCenter.x, car.position.y - startCenter.y);
+    // The body center, sitting outside the rear axle, sweeps a wider arc.
+    expect(centerDist).toBeGreaterThan(rearDist);
+  });
 });
