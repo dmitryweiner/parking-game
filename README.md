@@ -10,9 +10,17 @@ A small browser parking game: find a highlighted empty slot, park cleanly withou
 
 **Win condition.** All four corners of the car inside an empty slot's white lines, speed below 0.5 m/s, heading within ±20° of the slot's axis (either direction works).
 
-**Crash condition.** Any contact with another car or a lot wall ends the run.
+**Crash condition.** Any contact with another car, a lot wall, a crossing AI car, or a pedestrian ends the run.
 
-**Multiple empties.** Each round has 2–5 empty slots, all highlighted in green. Park in any of them — picking one closer to the entrance scores better.
+**Difficulty ramps with score.** Every ~800 points banked into your session total bumps the difficulty by one level:
+
+- **Empty slots** start at **6** and shrink by one per level, down to a minimum of **1**.
+- **Pedestrians** crossing the lot start at **1** and grow by one per level (unbounded).
+- **AI cars** sweeping through the driveways start at **1** and grow by one per level (unbounded).
+
+So early runs are forgiving and crowd with score. All empties are still highlighted in green — picking one closer to the entrance scores better.
+
+**Crossing traffic.** AI cars and pedestrians appear at the lot edge, cross to the far side, then despawn just past it. Pedestrians walk through pedestrian lanes (corridor, driveways, edge strips, and the vertical gaps between adjacent slot columns) so they pass *between* parked cars, not over them. AI cars stick to the driveways between row pairs. Both will hold station if anything — another agent, a pedestrian, or your car — is in front of them; if they stay blocked for ~1.5 s they make a U-turn and head back out the way they came.
 
 ### Controls
 
@@ -30,7 +38,7 @@ The camera is always centered on your car (clamped to lot bounds, so the view st
 
 The HUD has three equally-sized pills along the top: **Time** (seconds remaining), **Score** (running session total), and a combined **status / Restart** button. The button's label updates with game state — `Restart`, `Crashed`, `Timeout`, or `Parked` on a win — and the ↻ icon doubles as the affordance for "tap to start over". Labels are deliberately short so the row stays on one line on narrow phones; hover the button for the full sentence. The round score (the `+N` in the win label) is what gets banked into the session total when you restart.
 
-On game over (crash or timeout) the player car is drawn grey with all lights off.
+On game over (crash or timeout) the player car is drawn grey with all lights off. Parked cars and AI traffic share the same body / windshield / headlight / taillight rendering as the player car — only the body color differs — so the world reads as one consistent vehicle style.
 
 ## Project structure
 
@@ -39,9 +47,10 @@ src/
   main.ts                bootstrap, game loop, pinch / wheel zoom, session-score accumulation
   game/
     Car.ts               kinematic bicycle-model car physics
-    Collision.ts         OBB + SAT intersection
-    ParkingLot.ts        multi-row lot generation, win detection
+    Collision.ts         OBB + SAT intersection (plus circle-vs-OBB)
+    ParkingLot.ts        multi-row lot generation, win detection, pedestrian/AI lane positions
     Score.ts             time + distance score formula
+    Traffic.ts           pedestrians + crossing AI cars (spawn, avoid, give way)
     Game.ts              state machine orchestrating the above
   ui/
     Input.ts             keyboard + touch input (steering wheel + pedals)
@@ -89,10 +98,12 @@ ESLint runs through `typescript-eslint` (flat config in `eslint.config.js`). The
 
 ## Implementation notes
 
-- **TDD.** `tests/` were written first, then the implementations under `src/game/`. They cover the four pure logic modules (`Car`, `Collision`, `ParkingLot`, `Score`); rendering and DOM input are exercised manually.
+- **TDD.** `tests/` were written first, then the implementations under `src/game/`. They cover the four pure logic modules (`Car`, `Collision`, `ParkingLot`, `Score`); rendering, traffic, and DOM input are exercised manually.
 - **Physics.** A kinematic bicycle model — no inertia/mass, no tire forces. Forward acceleration, drag, brake force, max speed and steering angle are tuned constants in `Car.ts`. Only the front wheels steer: each tick the **rear axle** is rolled forward along the current heading and the heading is then advanced by `v · tan(δ) / L`, so the body sweeps around the external instant center (perpendicular to the rear axle, at radius `L / tan δ`). The body center is re-derived from the updated rear axle each step. Steering only changes heading while moving (yaw rate ∝ speed).
-- **Collisions.** Every car (player and parked) is an oriented bounding box (OBB). Lot walls are also OBBs. The Separating Axis Theorem test in `Collision.ts` checks four axes per pair.
-- **Parking lot.** Configurable `rows` × `cols` of slots arranged as pairs of rows facing each other across driveways, with a left-side corridor connecting all driveways to the entrance. Adjacent row pairs sit back-to-back (zero gap between rear bumpers) so the layout reads as discrete drive lanes rather than a wide-open area. Lot width and height are computed from the layout. Between 2 and 5 slots are left empty per round — any of them is a valid park. RNG is injectable for deterministic tests.
+- **Collisions.** Every car (player, parked, and AI) is an oriented bounding box (OBB). Lot walls are also OBBs. Pedestrians are circles. `Collision.ts` provides OBB-vs-OBB via the Separating Axis Theorem and a circle-vs-OBB test used for pedestrian-vs-player.
+- **Parking lot.** Configurable `rows` × `cols` of slots arranged as pairs of rows facing each other across driveways, with a left-side corridor connecting all driveways to the entrance. Adjacent row pairs sit back-to-back (zero gap between rear bumpers) so the layout reads as discrete drive lanes rather than a wide-open area. Lot width and height are computed from the layout. `ParkingLot` also exposes the Y-coordinates of horizontal driveways (used by AI traffic) and the X-coordinates of clear vertical lanes between slot columns (used by pedestrians). The empty-slot count is supplied by `Game` from the current difficulty level. RNG is injectable for deterministic tests.
+- **Traffic.** `Traffic.ts` owns the crossing pedestrians and AI cars. Each agent picks a clear lane (pedestrians use all horizontal *and* vertical lanes; AI cars use only the horizontal driveways) and walks/drives straight from one edge to the other. A lookahead probe checks the cell ahead against every other agent and the player's OBB — if anything is in the way, the agent holds station. If it stays blocked for ~1.5 s it flips its heading 180° and heads back out the way it came, which resolves head-on deadlocks without anyone teleporting. Crossing traffic is drawn inside a Canvas clip path matching the lot rectangle, so agents only become visible once they're actually on the playfield.
+- **Difficulty.** `main.ts` derives a level from the running session score (`floor(score / 800)`) and passes it into `new Game({ level })`. `Game` translates the level into `ParkingLot.emptySlots` (`max(1, 6 - level)`) and `Traffic` counts (`1 + level` pedestrians, `1 + level` AI cars). First run is always 6 empties + 1 of each crossing hazard.
 - **Single lot size.** The lot is always 4 rows × 10 cols regardless of viewport — the same puzzle on desktop and mobile. To keep mobile usable, the renderer starts at zoom 2 when `(hover: none) and (pointer: coarse)` matches (or when the device reports touch and a smaller viewport), so the car and nearby slots are large enough to maneuver around on a phone.
 - **Mobile canvas sizing.** Real mobile Chrome behaves differently from devtools emulation in two ways the renderer compensates for: (1) the canvas is sized from `window.visualViewport` (with `window.innerWidth/Height` as a fallback) and re-sized on `visualViewport.resize`/`scroll` plus `orientationchange`, so the URL bar collapsing doesn't leave the canvas mismatched against the visible area; (2) `devicePixelRatio` is clamped to 2 so the internal canvas buffer doesn't blow past per-device canvas size limits and silently no-op on draw.
 - **Win check.** All four player-car corners must lie inside some empty slot's local rectangle, speed below threshold, heading within ±20° of that slot's axis (mod 180°, so you can pull in either direction).
