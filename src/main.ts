@@ -24,7 +24,14 @@ function isMobile(): boolean {
 let sessionScore = 0;
 let game = new Game(LOT_OPTIONS);
 renderer.resize();
-if (isMobile()) renderer.setZoom(MOBILE_DEFAULT_ZOOM);
+// Add a body class as a JS-driven fallback for revealing the mobile controls.
+// Some webviews / Chrome Custom Tabs don't report `(hover: none) and
+// (pointer: coarse)` reliably, so the CSS media query alone can leave the
+// steering wheel + pedals hidden on a real touch device.
+if (isMobile()) {
+  document.body.classList.add('is-mobile');
+  renderer.setZoom(MOBILE_DEFAULT_ZOOM);
+}
 const handleResize = (): void => renderer.resize();
 window.addEventListener('resize', handleResize);
 window.addEventListener('orientationchange', handleResize);
