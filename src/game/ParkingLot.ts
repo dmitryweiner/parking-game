@@ -26,13 +26,14 @@ export interface ParkingLotOptions {
   slotLength: number;
   slotWidth: number;
   rng?: () => number;
+  /** Desired number of empty (parkable) slots. Clamped to [1, total]. */
+  emptySlots?: number;
 }
 
 const CAR_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#1abc9c', '#e67e22'];
 const PARK_SPEED_THRESHOLD = 0.5;
 const PARK_ANGLE_TOLERANCE = (20 * Math.PI) / 180;
-const MIN_EMPTY_SLOTS = 2;
-const MAX_EMPTY_SLOTS = 5;
+const DEFAULT_EMPTY_SLOTS = 6;
 
 export class ParkingLot {
   readonly width: number;
@@ -41,6 +42,16 @@ export class ParkingLot {
   readonly parkedCars: ParkedCar[] = [];
   readonly walls: Wall[] = [];
   readonly entrance: Vec2;
+  /** Y-coordinates of horizontal driveway centers (between row pairs). Useful
+   * for AI traffic that crosses the lot without overlapping parked cars. */
+  readonly driveways: number[] = [];
+  /** Y-coordinates of pedestrian-safe horizontal lanes (top edge, driveways,
+   * bottom edge — every horizontal strip with no parked cars). */
+  readonly horizontalLanes: number[] = [];
+  /** X-coordinates of pedestrian-safe vertical lanes (left corridor, each gap
+   * between adjacent slot columns, right edge). Pedestrians walk down these
+   * to slip *between* parked cars instead of through them. */
+  readonly verticalLanes: number[] = [];
 
   constructor(opts: ParkingLotOptions) {
     const rng = opts.rng ?? Math.random;
@@ -67,6 +78,7 @@ export class ParkingLot {
       } else {
         rowLayout.push({ cy: y + slotL / 2, angle: Math.PI / 2 });
         rowLayout.push({ cy: y + slotL + drivewayWidth + slotL / 2, angle: -Math.PI / 2 });
+        this.driveways.push(y + slotL + drivewayWidth / 2);
         placed += 2;
         y += 2 * slotL + drivewayWidth;
       }
@@ -95,9 +107,8 @@ export class ParkingLot {
     }
 
     const total = this.slots.length;
-    const maxEmpty = Math.min(MAX_EMPTY_SLOTS, total);
-    const minEmpty = Math.min(MIN_EMPTY_SLOTS, total);
-    const numEmpty = minEmpty + Math.floor(rng() * (maxEmpty - minEmpty + 1));
+    const requested = opts.emptySlots ?? DEFAULT_EMPTY_SLOTS;
+    const numEmpty = Math.max(1, Math.min(total, requested));
     const emptyIndices = pickIndices(total, numEmpty, rng);
     for (const idx of emptyIndices) this.slots[idx].occupied = false;
 
@@ -120,6 +131,18 @@ export class ParkingLot {
     );
 
     this.entrance = { x: corridorWidth / 2, y: lotHeight / 2 };
+
+    // Pedestrian lanes: any horizontal strip / vertical column with no parked
+    // cars in it. Walking along one of these guarantees a clear path.
+    this.horizontalLanes.push(padding / 2);
+    for (const d of this.driveways) this.horizontalLanes.push(d);
+    this.horizontalLanes.push(lotHeight - padding / 2);
+
+    this.verticalLanes.push(corridorWidth / 2);
+    for (let c = 0; c < cols - 1; c++) {
+      this.verticalLanes.push(xStart + (c + 0.5) * slotW);
+    }
+    this.verticalLanes.push(lotWidth - padding / 2);
   }
 
   isParked(car: Car): boolean {

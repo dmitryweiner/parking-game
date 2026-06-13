@@ -1,6 +1,7 @@
 import type { Game } from '../game/Game';
 import type { Slot, ParkedCar } from '../game/ParkingLot';
 import type { Car } from '../game/Car';
+import type { Pedestrian, AICar } from '../game/Traffic';
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 4;
@@ -86,6 +87,16 @@ export class Renderer {
     for (const p of game.lot.parkedCars) drawParked(ctx, p);
 
     drawEntrance(ctx, game.lot.entrance);
+    // Crossing traffic spawns just outside the lot edge and despawns past the
+    // far edge; clip to the lot rect so they appear only while they're
+    // actually inside the playfield (entering / exiting cleanly at the edge).
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, game.lot.width, game.lot.height);
+    ctx.clip();
+    for (const c of game.traffic.cars) drawAICar(ctx, c);
+    for (const p of game.traffic.pedestrians) drawPedestrian(ctx, p);
+    ctx.restore();
     const dead = game.state === 'crashed' || game.state === 'timeout';
     drawPlayerCar(ctx, game.car, dead);
 
@@ -113,61 +124,131 @@ function drawSlot(ctx: CanvasRenderingContext2D, slot: Slot, highlight: boolean)
 }
 
 function drawParked(ctx: CanvasRenderingContext2D, p: ParkedCar): void {
-  ctx.save();
-  ctx.translate(p.obb.cx, p.obb.cy);
-  ctx.rotate(p.obb.angle);
-  ctx.fillStyle = p.color;
-  const hl = p.obb.hx;
-  const hw = p.obb.hy;
-  roundRect(ctx, -hl, -hw, hl * 2, hw * 2, 0.4);
-  ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.4)';
-  ctx.fillRect(hl * 0.4, -hw * 0.7, hl * 0.4, hw * 1.4);
-  ctx.restore();
+  // Parked cars share the player car's visual style (rounded body, tinted
+  // windshield, headlights, taillights) so the world feels consistent — only
+  // their colors differ from the player's yellow body.
+  drawCarBody(ctx, {
+    cx: p.obb.cx,
+    cy: p.obb.cy,
+    angle: p.obb.angle,
+    hl: p.obb.hx,
+    hw: p.obb.hy,
+    bodyColor: p.color,
+    windshieldColor: '#222',
+    headlightColor: '#fff',
+    taillightColor: '#a52323',
+  });
 }
 
 function drawPlayerCar(ctx: CanvasRenderingContext2D, car: Car, dead: boolean): void {
+  const reversing = car.velocity < -0.05 || (car.velocity < 0.5 && car.brakeInput > 0.1);
+  const braking = !reversing && car.brakeInput > 0.1;
+  drawCarBody(ctx, {
+    cx: car.position.x,
+    cy: car.position.y,
+    angle: car.heading,
+    hl: car.length / 2,
+    hw: car.width / 2,
+    bodyColor: dead ? '#6b6f78' : '#ffce4d',
+    windshieldColor: dead ? '#3b3e45' : '#222',
+    headlightColor: dead ? '#2a2c32' : '#fff',
+    taillightColor: dead ? '#2a2c32' : reversing ? '#ffffff' : braking ? '#ff2828' : '#a52323',
+    glowTaillight: braking && !dead,
+  });
+}
+
+interface CarVisual {
+  cx: number;
+  cy: number;
+  angle: number;
+  hl: number;
+  hw: number;
+  bodyColor: string;
+  windshieldColor: string;
+  headlightColor: string;
+  taillightColor: string;
+  glowTaillight?: boolean;
+}
+
+function drawCarBody(ctx: CanvasRenderingContext2D, v: CarVisual): void {
   ctx.save();
-  ctx.translate(car.position.x, car.position.y);
-  ctx.rotate(car.heading);
-  const hl = car.length / 2;
-  const hw = car.width / 2;
-  ctx.fillStyle = dead ? '#6b6f78' : '#ffce4d';
-  roundRect(ctx, -hl, -hw, hl * 2, hw * 2, 0.4);
+  ctx.translate(v.cx, v.cy);
+  ctx.rotate(v.angle);
+  ctx.fillStyle = v.bodyColor;
+  roundRect(ctx, -v.hl, -v.hw, v.hl * 2, v.hw * 2, 0.4);
   ctx.fill();
-  ctx.fillStyle = dead ? '#3b3e45' : '#222';
-  ctx.fillRect(hl * 0.45, -hw * 0.75, hl * 0.35, hw * 1.5);
+  ctx.fillStyle = v.windshieldColor;
+  ctx.fillRect(v.hl * 0.45, -v.hw * 0.75, v.hl * 0.35, v.hw * 1.5);
 
-  if (!dead) {
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.arc(hl * 0.95, -hw * 0.6, 0.15, 0, Math.PI * 2);
-    ctx.arc(hl * 0.95, hw * 0.6, 0.15, 0, Math.PI * 2);
-    ctx.fill();
+  ctx.fillStyle = v.headlightColor;
+  ctx.beginPath();
+  ctx.arc(v.hl * 0.95, -v.hw * 0.6, 0.15, 0, Math.PI * 2);
+  ctx.arc(v.hl * 0.95, v.hw * 0.6, 0.15, 0, Math.PI * 2);
+  ctx.fill();
 
-    const reversing = car.velocity < -0.05 || (car.velocity < 0.5 && car.brakeInput > 0.1);
-    const braking = !reversing && car.brakeInput > 0.1;
-    ctx.fillStyle = reversing ? '#ffffff' : braking ? '#ff2828' : '#a52323';
-    ctx.beginPath();
-    ctx.arc(-hl * 0.95, -hw * 0.6, 0.18, 0, Math.PI * 2);
-    ctx.arc(-hl * 0.95, hw * 0.6, 0.18, 0, Math.PI * 2);
+  ctx.fillStyle = v.taillightColor;
+  ctx.beginPath();
+  ctx.arc(-v.hl * 0.95, -v.hw * 0.6, 0.18, 0, Math.PI * 2);
+  ctx.arc(-v.hl * 0.95, v.hw * 0.6, 0.18, 0, Math.PI * 2);
+  ctx.fill();
+  if (v.glowTaillight) {
+    ctx.shadowColor = '#ff2828';
+    ctx.shadowBlur = 0.5;
     ctx.fill();
-    if (braking) {
-      ctx.shadowColor = '#ff2828';
-      ctx.shadowBlur = 0.5;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
-  } else {
-    ctx.fillStyle = '#2a2c32';
-    ctx.beginPath();
-    ctx.arc(hl * 0.95, -hw * 0.6, 0.15, 0, Math.PI * 2);
-    ctx.arc(hl * 0.95, hw * 0.6, 0.15, 0, Math.PI * 2);
-    ctx.arc(-hl * 0.95, -hw * 0.6, 0.18, 0, Math.PI * 2);
-    ctx.arc(-hl * 0.95, hw * 0.6, 0.18, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.shadowBlur = 0;
   }
   ctx.restore();
+}
+
+function drawPedestrian(ctx: CanvasRenderingContext2D, p: Pedestrian): void {
+  // Top-down schematic of a person: shoulder ellipse oriented along the walk
+  // direction, head circle on top. The shoulder ellipse is wider perpendicular
+  // to walking, so the figure visibly "points" the way they're going.
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.rotate(p.heading);
+
+  // Shoulders / torso
+  ctx.fillStyle = '#2563eb';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 0.18, 0.3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Short arms poking out the sides
+  ctx.strokeStyle = '#1e3a8a';
+  ctx.lineWidth = 0.08;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-0.02, -0.3);
+  ctx.lineTo(0.08, -0.42);
+  ctx.moveTo(-0.02, 0.3);
+  ctx.lineTo(0.08, 0.42);
+  ctx.stroke();
+
+  // Head (slightly forward of torso center so direction reads at a glance)
+  ctx.fillStyle = '#f5d6a8';
+  ctx.beginPath();
+  ctx.arc(0.04, 0, 0.13, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(20,20,20,0.6)';
+  ctx.lineWidth = 0.04;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawAICar(ctx: CanvasRenderingContext2D, c: AICar): void {
+  drawCarBody(ctx, {
+    cx: c.x,
+    cy: c.y,
+    angle: c.heading,
+    hl: c.length / 2,
+    hw: c.width / 2,
+    bodyColor: c.color,
+    windshieldColor: '#222',
+    headlightColor: '#fff',
+    taillightColor: '#a52323',
+  });
 }
 
 function drawEntrance(ctx: CanvasRenderingContext2D, entrance: { x: number; y: number }): void {

@@ -13,6 +13,11 @@ const hud = new Hud();
 
 const LOT_OPTIONS: GameOptions = { rows: 4, cols: 10 };
 const MOBILE_DEFAULT_ZOOM = 2;
+// Every ~one perfect parking earns a difficulty step: fewer empty slots, more
+// pedestrians, more crossing AI cars. Tuned so the first run is friendly (6
+// empty slots, just one pedestrian) and harder difficulty arrives gradually.
+const SCORE_PER_LEVEL = 800;
+const difficultyFromScore = (s: number): number => Math.floor(s / SCORE_PER_LEVEL);
 
 function isMobile(): boolean {
   if (window.matchMedia('(hover: none) and (pointer: coarse)').matches) return true;
@@ -22,7 +27,7 @@ function isMobile(): boolean {
 }
 
 let sessionScore = 0;
-let game = new Game(LOT_OPTIONS);
+let game = new Game({ ...LOT_OPTIONS, level: difficultyFromScore(sessionScore) });
 renderer.resize();
 // Add a body class as a JS-driven fallback for revealing the mobile controls.
 // Some webviews / Chrome Custom Tabs don't report `(hover: none) and
@@ -76,7 +81,7 @@ function loop(now: number): void {
 
   if (input.consumeReset()) {
     if (game.state === 'won') sessionScore += game.finalScore;
-    game = new Game(LOT_OPTIONS);
+    game = new Game({ ...LOT_OPTIONS, level: difficultyFromScore(sessionScore) });
     // intentionally keep the current zoom — restart shouldn't snap the view
   }
 

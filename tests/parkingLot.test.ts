@@ -2,12 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { ParkingLot } from '../src/game/ParkingLot';
 import { Car } from '../src/game/Car';
 
-const makeLot = (seed = 1) =>
+const makeLot = (seed = 1, emptySlots?: number) =>
   new ParkingLot({
     rows: 2,
     cols: 6,
     slotLength: 5,
     slotWidth: 2.5,
+    emptySlots,
     rng: () => {
       // deterministic LCG seeded with the constructor seed
       seed = (seed * 1664525 + 1013904223) >>> 0;
@@ -27,11 +28,22 @@ describe('ParkingLot generation', () => {
     expect(lot.slots).toHaveLength(12);
   });
 
-  it('marks between 2 and 5 slots as empty', () => {
+  it('defaults to 6 empty slots when no count is requested', () => {
     const lot = makeLot();
     const empties = lot.slots.filter((s) => !s.occupied);
-    expect(empties.length).toBeGreaterThanOrEqual(2);
-    expect(empties.length).toBeLessThanOrEqual(5);
+    expect(empties).toHaveLength(6);
+  });
+
+  it('respects the requested empty-slot count', () => {
+    const lot = makeLot(1, 2);
+    const empties = lot.slots.filter((s) => !s.occupied);
+    expect(empties).toHaveLength(2);
+  });
+
+  it('clamps the empty-slot count to at least one', () => {
+    const lot = makeLot(1, 0);
+    const empties = lot.slots.filter((s) => !s.occupied);
+    expect(empties).toHaveLength(1);
   });
 
   it('places parked cars in every occupied slot', () => {
