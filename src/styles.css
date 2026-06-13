@@ -19,6 +19,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden;
   display: flex;
   gap: 12px;
   align-items: stretch;
+  flex-wrap: wrap;
   pointer-events: none;
   font-weight: 600;
   text-shadow: 0 1px 4px rgba(0,0,0,0.6);
@@ -37,9 +38,12 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden;
   white-space: nowrap;
   color: var(--hud-fg);
   border: 1px solid rgba(255,255,255,0.06);
+  /* Pills size to their content; if the row runs out of horizontal space the
+     HUD wraps to a new line rather than letting the value text spill out the
+     right edge of its background. */
+  flex-shrink: 0;
 }
-#time, #score { min-width: 110px; }
-#hud [data-value] { display: inline-block; min-width: 3.5ch; text-align: right; }
+#hud [data-value] { text-align: right; }
 
 #btn-restart {
   cursor: pointer;
@@ -111,7 +115,13 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden;
 
 @media (max-width: 500px) {
   .hud-pill { font-size: 14px; padding: 0 10px; }
-  #time, #score { min-width: 84px; }
   #btn-restart .restart-icon { font-size: 18px; }
   #btn-restart .restart-label { font-size: 13px; }
+}
+
+/* On phones narrow enough that "Time:", "Score:" and "Restart" can no longer
+   share a row, the restart button collapses to its icon so the three pills
+   still fit side-by-side. */
+@media (max-width: 380px) {
+  #btn-restart .restart-label { display: none; }
 }
