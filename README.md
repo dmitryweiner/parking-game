@@ -28,7 +28,7 @@ The camera is always centered on your car (clamped to lot bounds, so the view st
 
 ### HUD
 
-The HUD has three equally-sized pills along the top: **Time** (seconds remaining), **Score** (running session total), and a combined **status / Restart** button. The button's label updates with game state — `Restart`, `Crashed — Restart`, `Time's up — Restart`, or `Parked! +<round score> — Restart` — so there's a single thing to click to start over. The round score (the `+N` in the win label) is what gets banked into the session total when you restart.
+The HUD has three equally-sized pills along the top: **Time** (seconds remaining), **Score** (running session total), and a combined **status / Restart** button. The button's label updates with game state — `Restart`, `Crashed`, `Timeout`, or `Parked` on a win — and the ↻ icon doubles as the affordance for "tap to start over". Labels are deliberately short so the row stays on one line on narrow phones; hover the button for the full sentence. The round score (the `+N` in the win label) is what gets banked into the session total when you restart.
 
 On game over (crash or timeout) the player car is drawn grey with all lights off.
 

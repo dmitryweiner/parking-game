@@ -38,23 +38,26 @@ export class Hud {
         const btn = this.restartBtnEl;
         const label = this.restartLabelEl;
         btn.classList.remove('won', 'lost');
+        // Labels are kept short so the whole "Time / Score / Restart" row fits
+        // on a single line on narrow phones. The ↻ icon is the affordance for
+        // "tap to restart" — the title attribute carries the full sentence.
         switch (state) {
           case 'playing':
             label.textContent = 'Restart';
             btn.setAttribute('title', 'Restart (R)');
             break;
           case 'won':
-            label.textContent = `Parked! +${game.finalScore} — Restart`;
+            label.textContent = 'Parked';
             btn.classList.add('won');
             btn.setAttribute('title', `Parked — +${game.finalScore}. Restart (R)`);
             break;
           case 'crashed':
-            label.textContent = 'Crashed — Restart';
+            label.textContent = 'Crashed';
             btn.classList.add('lost');
             btn.setAttribute('title', 'Crashed. Restart (R)');
             break;
           case 'timeout':
-            label.textContent = "Time's up — Restart";
+            label.textContent = 'Timeout';
             btn.classList.add('lost');
             btn.setAttribute('title', "Time's up. Restart (R)");
             break;
